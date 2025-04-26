@@ -1,22 +1,7 @@
 {
-  "version": 2,
-  "builds": [
-    {
-      "src": "index.ts",
-      "use": "@vercel/node",
-      "config": {
-        "runtime": "edge"
-      }
-    }
-  ],
   "routes": [
-    {
-      "src": "/",
-      "dest": "/index.ts"
-    },
-    {
-      "src": "/api/paste",
-      "dest": "/index.ts"
-    }
+    { "src": "/r/(.*)", "dest": "/" },
+    { "src": "/(.*)", "dest": "/" },
+    { "src": "/", "dest": "/" }
   ]
 }
