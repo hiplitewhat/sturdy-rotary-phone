@@ -1,3 +1,4 @@
+
 export const config = {
   runtime: 'edge',
 };
@@ -45,6 +46,7 @@ export default async function handler(req: Request): Promise<Response> {
         method: 'POST',
         headers: {
           Accept: 'application/json',
+          'Content-Type': 'application/json', // FIXED: Added Content-Type
           Authorization: `Bearer ${API_TOKEN}`,
         },
         body: JSON.stringify(pasteData),
@@ -58,9 +60,11 @@ export default async function handler(req: Request): Promise<Response> {
           { headers: { 'Content-Type': 'text/html' } }
         );
       } else {
+        console.log('PasteCode API Error:', data); // DEBUG: Print API error details
         return new Response(`Error: ${data.message || 'Paste creation failed'}`, { status: 500 });
       }
     } catch (err: any) {
+      console.log('Unexpected Error:', err); // DEBUG: Print unexpected errors
       return new Response(`Unexpected error: ${err.message || err}`, { status: 500 });
     }
   }
