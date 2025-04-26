@@ -46,7 +46,7 @@ export default async function handler(req: Request): Promise<Response> {
         method: 'POST',
         headers: {
           Accept: 'application/json',
-          'Content-Type': 'application/json', // FIXED: Added Content-Type
+          'Content-Type': 'application/json',
           Authorization: `Bearer ${API_TOKEN}`,
         },
         body: JSON.stringify(pasteData),
@@ -55,18 +55,30 @@ export default async function handler(req: Request): Promise<Response> {
       const data = await response.json();
 
       if (response.ok) {
+        const slug = data.url.split('/').pop(); // Get the last part of URL
+        const hiddenUrl = `/r/${slug}`; // Your hidden redirect URL
+
         return new Response(
-          `<p>Paste created: <a href="${data.url}">${data.url}</a></p>`,
+          `<p>Paste created: <a href="${hiddenUrl}">${hiddenUrl}</a></p>`,
           { headers: { 'Content-Type': 'text/html' } }
         );
       } else {
-        console.log('PasteCode API Error:', data); // DEBUG: Print API error details
+        console.log('PasteCode API Error:', data);
         return new Response(`Error: ${data.message || 'Paste creation failed'}`, { status: 500 });
       }
     } catch (err: any) {
-      console.log('Unexpected Error:', err); // DEBUG: Print unexpected errors
+      console.log('Unexpected Error:', err);
       return new Response(`Unexpected error: ${err.message || err}`, { status: 500 });
     }
+  }
+
+  // Handle redirects: /r/:slug
+  const match = pathname.match(/^\/r\/([^\/]+)$/);
+  if (match) {
+    const slug = match[1];
+    const realPasteUrl = `https://pastecode.dev/paste/${slug}`;
+
+    return Response.redirect(realPasteUrl, 302); // 302 Temporary Redirect
   }
 
   return new Response('Not Found', { status: 404 });
