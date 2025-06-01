@@ -1,12 +1,13 @@
-const serverless = require('serverless-http');
 const express = require('express');
 const bodyParser = require('body-parser');
 const fetch = require('node-fetch');
 const { v4: uuidv4 } = require('uuid');
+const serverless = require('serverless-http');
 require('dotenv').config();
 
 const app = express();
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
+const POST_PASSWORD = process.env.POST_PASSWORD;
 const REPO_OWNER = 'hiplitewhat';
 const REPO_NAME = 'a';
 const BRANCH = 'main';
@@ -15,8 +16,6 @@ app.use(bodyParser.json());
 app.use(express.urlencoded({ extended: true }));
 
 let notes = [];
-let notesCacheTimestamp = 0;
-const CACHE_TTL = 1000 * 60 * 5; // 5 minutes cache
 
 function isRobloxScript(content) {
   return content.includes('game') || content.includes('script');
@@ -98,19 +97,12 @@ async function loadNotesFromGithub() {
         id: file.name.replace('.txt', ''),
         title,
         content,
-        createdAt: new Date().toISOString() // You can improve this later
+        createdAt: new Date().toISOString()
       });
     }
   }
 
-  notesCacheTimestamp = Date.now();
-}
-
-async function getNotes() {
-  if (!notes.length || (Date.now() - notesCacheTimestamp > CACHE_TTL)) {
-    await loadNotesFromGithub();
-  }
-  return notes;
+  console.log(`Loaded ${notes.length} notes from GitHub.`);
 }
 
 function renderHTML(noteList, sortOrder = 'desc') {
@@ -142,6 +134,7 @@ function renderHTML(noteList, sortOrder = 'desc') {
       <form method="POST" action="/notes">
         <input type="text" name="title" placeholder="Title" required><br><br>
         <textarea name="content" rows="4" cols="50" placeholder="Write your note..." required></textarea><br>
+        <input type="password" name="password" placeholder="Password" required><br><br>
         <button type="submit">Save Note</button>
       </form>
       <p>Sort: 
@@ -153,19 +146,22 @@ function renderHTML(noteList, sortOrder = 'desc') {
     </html>`;
 }
 
-app.get('/', async (req, res) => {
+app.get('/', (req, res) => {
   const sort = req.query.sort || 'desc';
-  const allNotes = await getNotes();
-  res.send(renderHTML(allNotes, sort));
+  res.send(renderHTML(notes, sort));
 });
 
 app.post('/notes', async (req, res) => {
-  let { title, content } = req.body;
+  let { title, content, password } = req.body;
+
+  if (password !== process.env.POST_PASSWORD) {
+    return res.status(403).send('Forbidden: Incorrect password');
+  }
+
   if (!content) return res.status(400).send('Content is required');
   if (!title) title = 'Untitled';
 
   try {
-    // Filter title
     const titleFilterRes = await fetch('https://jagged-chalk-feet.glitch.me/filter', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -177,7 +173,6 @@ app.post('/notes', async (req, res) => {
       if (data.filtered) title = data.filtered.trim();
     }
 
-    // Filter content
     const contentFilterRes = await fetch('https://jagged-chalk-feet.glitch.me/filter', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -203,7 +198,6 @@ app.post('/notes', async (req, res) => {
     createdAt: new Date().toISOString()
   };
 
-  // Push to local cache (optional, but kept for quick display)
   notes.push(note);
 
   try {
@@ -214,14 +208,13 @@ app.post('/notes', async (req, res) => {
   }
 });
 
-app.get('/notes/:id', async (req, res) => {
+app.get('/notes/:id', (req, res) => {
   const userAgent = req.get('User-Agent') || '';
   if (!userAgent.includes('Roblox')) {
     return res.status(403).send('Access denied');
   }
 
-  const allNotes = await getNotes();
-  const note = allNotes.find(n => n.id === req.params.id);
+  const note = notes.find(n => n.id === req.params.id);
   if (!note) return res.status(404).send('Not found');
 
   res.type('text/plain').send(note.content);
@@ -253,5 +246,6 @@ app.post('/filter', async (req, res) => {
   }
 });
 
+// This is required for Vercel serverless functions
 module.exports = app;
 module.exports.handler = serverless(app);
