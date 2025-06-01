@@ -73,6 +73,8 @@ async function loadNotesFromGithub() {
   notes = [];
   const url = `https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/contents/notes?ref=${BRANCH}`;
 
+  console.log('[loadNotesFromGithub] Fetching notes from GitHub...');
+
   const res = await fetch(url, {
     headers: { Authorization: `token ${GITHUB_TOKEN}` }
   });
@@ -102,7 +104,7 @@ async function loadNotesFromGithub() {
     }
   }
 
-  console.log(`Loaded ${notes.length} notes from GitHub.`);
+  console.log(`[loadNotesFromGithub] Loaded ${notes.length} notes from GitHub.`);
 }
 
 function renderHTML(noteList, sortOrder = 'desc') {
@@ -146,15 +148,22 @@ function renderHTML(noteList, sortOrder = 'desc') {
     </html>`;
 }
 
-app.get('/', (req, res) => {
+// Debug load notes on startup
+loadNotesFromGithub();
+
+app.get('/', async (req, res) => {
   const sort = req.query.sort || 'desc';
+  await loadNotesFromGithub();
+  console.log('[GET /] Serving notes:', notes.length);
   res.send(renderHTML(notes, sort));
 });
 
 app.post('/notes', async (req, res) => {
   let { title, content, password } = req.body;
+  console.log('[POST /notes] Received:', { title, content, password });
 
   if (password !== process.env.POST_PASSWORD) {
+    console.warn('[POST /notes] Invalid password:', password);
     return res.status(403).send('Forbidden: Incorrect password');
   }
 
@@ -162,32 +171,40 @@ app.post('/notes', async (req, res) => {
   if (!title) title = 'Untitled';
 
   try {
+    console.log('[POST /notes] Filtering title and content...');
     const titleFilterRes = await fetch('https://jagged-chalk-feet.glitch.me/filter', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: title })
+      body: JSON.stringify({ text: title }),
     });
 
     if (titleFilterRes.ok) {
       const data = await titleFilterRes.json();
-      if (data.filtered) title = data.filtered.trim();
+      if (data.filtered) {
+        console.log('[POST /notes] Filtered title:', data.filtered);
+        title = data.filtered.trim();
+      }
     }
 
     const contentFilterRes = await fetch('https://jagged-chalk-feet.glitch.me/filter', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: content })
+      body: JSON.stringify({ text: content }),
     });
 
     if (contentFilterRes.ok) {
       const data = await contentFilterRes.json();
-      if (data.filtered) content = data.filtered.trim();
+      if (data.filtered) {
+        console.log('[POST /notes] Filtered content.');
+        content = data.filtered.trim();
+      }
     }
   } catch (err) {
-    console.error('Filtering error, saving original title/content:', err);
+    console.error('[POST /notes] Filtering error:', err);
   }
 
   if (isRobloxScript(content)) {
+    console.log('[POST /notes] Roblox script detected — obfuscating...');
     content = await obfuscate(content);
   }
 
@@ -195,15 +212,18 @@ app.post('/notes', async (req, res) => {
     id: uuidv4(),
     title,
     content,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
   };
 
   notes.push(note);
+  console.log('[POST /notes] Final note:', note);
 
   try {
-    await storeNoteGithub(note.id, note.title, note.content);
+    const ghRes = await storeNoteGithub(note.id, note.title, note.content);
+    console.log('[POST /notes] GitHub success:', ghRes.content?.path);
     res.redirect('/');
   } catch (err) {
+    console.error('[POST /notes] GitHub error:', err.message);
     res.status(500).send(`GitHub error: ${err.message}`);
   }
 });
@@ -246,6 +266,5 @@ app.post('/filter', async (req, res) => {
   }
 });
 
-// This is required for Vercel serverless functions
 module.exports = app;
 module.exports.handler = serverless(app);
