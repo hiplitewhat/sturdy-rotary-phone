@@ -148,7 +148,6 @@ function renderHTML(noteList, sortOrder = 'desc') {
     </html>`;
 }
 
-// Debug load notes on startup
 loadNotesFromGithub();
 
 app.get('/', async (req, res) => {
@@ -162,7 +161,7 @@ app.post('/notes', async (req, res) => {
   let { title, content, password } = req.body;
   console.log('[POST /notes] Received:', { title, content, password });
 
-  if (password !== process.env.POST_PASSWORD) {
+  if (password !== POST_PASSWORD) {
     console.warn('[POST /notes] Invalid password:', password);
     return res.status(403).send('Forbidden: Incorrect password');
   }
@@ -172,35 +171,33 @@ app.post('/notes', async (req, res) => {
 
   try {
     console.log('[POST /notes] Filtering title and content...');
-    const titleFilterRes = await fetch('https://jagged-chalk-feet.glitch.me/filter', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: title }),
-    });
 
-    if (titleFilterRes.ok) {
-      const data = await titleFilterRes.json();
-      if (data.filtered) {
-        console.log('[POST /notes] Filtered title:', data.filtered);
-        title = data.filtered.trim();
+    const filterText = async (text) => {
+      const res = await fetch('https://jagged-chalk-feet.glitch.me/filter', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+
+      if (res.status === 404) {
+        console.warn('[Filter] API 404 — skipping filter');
+        return text;
       }
-    }
 
-    const contentFilterRes = await fetch('https://jagged-chalk-feet.glitch.me/filter', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: content }),
-    });
-
-    if (contentFilterRes.ok) {
-      const data = await contentFilterRes.json();
-      if (data.filtered) {
-        console.log('[POST /notes] Filtered content.');
-        content = data.filtered.trim();
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`[Filter] API error: ${errorText}`);
       }
-    }
+
+      const data = await res.json();
+      return data.filtered ? data.filtered.trim() : text;
+    };
+
+    title = await filterText(title);
+    content = await filterText(content);
+
   } catch (err) {
-    console.error('[POST /notes] Filtering error:', err);
+    console.error('[POST /notes] Filtering error — continuing without changes:', err.message);
   }
 
   if (isRobloxScript(content)) {
