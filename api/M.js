@@ -10,7 +10,7 @@ export default async function handler(request) {
 
   if (/roblox/i.test(userAgent)) {
     return Response.redirect(
-      "https://gist.githubusercontent.com/hiplitewhat/b6dd9a0c53e6dba52ea6eff294825d7b/raw/127c6b915a96bc7bd310a1fa01cdc43615229544/gistfile1.txt",
+      "https://gist.githubusercontent.com/hiplitewhat/bb945bcae78f775c26be3897777d693d/raw/58a2a8ee6cc822bcbf749a233cb15cc6db81d0c3/gistfile1.txt",
       302
     );
   }
