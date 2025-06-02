@@ -6,6 +6,6 @@
   ],
   "routes": [
     { "src": "/", "dest": "/api/M.js" },
-    { "src": "/route2/(.*)", "dest": "/api/route2.js" }
+    { "src": "/route2/(.*)", "dest": "/api/A.js" }
   ]
 }
