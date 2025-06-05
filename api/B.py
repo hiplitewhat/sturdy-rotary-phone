@@ -1,43 +1,50 @@
+const express = require('express');
+const app = express();
 
-# api/index.py
-from flask import Flask, request, jsonify
-from vercel_python.flask import VercelHandler
-from threading import Lock
+// In-memory command store with basic locking logic
+const commands = {};
+const lock = {
+  acquire: (fn) => fn()  // Simple lock simulation for this case (single-threaded)
+};
 
-app = Flask(__name__)
-handler = VercelHandler(app)
+// /set endpoint
+app.get('/set', (req, res) => {
+  const target = req.query.target;
+  const command = req.query.command;
 
-commands = {}
-lock = Lock()
+  if (!target || !command) {
+    return res.status(400).json({ status: 'error', message: 'Missing target or command' });
+  }
 
-@app.route('/set', methods=['GET'])
-def set_command():
-    target = request.args.get('target')
-    command = request.args.get('command')
+  lock.acquire(() => {
+    commands[target] = command;
+  });
 
-    if not target or not command:
-        return jsonify({"status": "error", "message": "Missing target or command"}), 400
+  console.log(`✅ Set command for ${target}: ${command}`);
+  return res.json({ status: 'success', target, command });
+});
 
-    with lock:
-        commands[target] = command
-    print(f"✅ Set command for {target}: {command}")
-    return jsonify({"status": "success", "target": target, "command": command})
+// /get endpoint
+app.get('/get', (req, res) => {
+  const target = req.query.target;
 
-@app.route('/get', methods=['GET'])
-def get_command():
-    target = request.args.get('target')
-    if not target:
-        return jsonify({"status": "error", "message": "Missing target"}), 400
+  if (!target) {
+    return res.status(400).json({ status: 'error', message: 'Missing target' });
+  }
 
-    with lock:
-        command = commands.pop(target, None)
+  let command = null;
+  lock.acquire(() => {
+    command = commands[target];
+    delete commands[target];
+  });
 
-    if command:
-        print(f"📤 Sent command to {target}: {command}")
-        return jsonify({"command": command})
-    else:
-        return jsonify({})
+  if (command) {
+    console.log(`📤 Sent command to ${target}: ${command}`);
+    return res.json({ command });
+  } else {
+    return res.json({});
+  }
+});
 
-# Expose app via handler for Vercel
-def handler(event, context):
-    return handler(event, context)
+// Export for Vercel
+module.exports = app;
