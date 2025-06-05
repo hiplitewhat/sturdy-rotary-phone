@@ -3,7 +3,7 @@
   "builds": [
     { "src": "api/M.js", "use": "@vercel/node" },
     { "src": "api/A.js", "use": "@vercel/node" },
-    { "src": "api/B.py", "use": "@vercel/python" }
+    { "src": "api/B.py", "use": "@vercel/node" }
   ],
   "routes": [
     { "src": "/", "dest": "/api/M.js" },
