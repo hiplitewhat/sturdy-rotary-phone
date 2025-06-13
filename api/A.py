@@ -11,7 +11,7 @@ GITHUB_REPO = "yourusername/roblox-version-tracker"  # <-- change this
 GITHUB_FILEPATH = "ios_version.txt"
 GITHUB_BRANCH = "main"
 
-@app.route("/a", methods=["GET"])
+@app.route("/", methods=["GET"])
 def check_version():
     # Fetch version from Apple Store
     app_id = "431946152"
