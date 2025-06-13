@@ -10,6 +10,6 @@
     { "src": "/", "dest": "/api/M.js" },
     { "src": "/route2/(.*)", "dest": "/api/A.js" },
     { "src": "/route3/(.*)", "dest": "/api/B.js" },
-    { "src": "/route4/(.*)", "dest": "/api/A.py" }
+    { "src": "/b", "dest": "/api/A.py" }
   ]
 }
