@@ -5,13 +5,13 @@
     { "src": "api/A.js", "use": "@vercel/node" },
     { "src": "api/B.js", "use": "@vercel/node" },
     { "src": "api/Ab.js", "use": "@vercel/node" },
-    { "src": "api/Kdkdjdk.js", "use": "@vercel/node" }
+    { "src": "api/Kdkdjdk.cjs", "use": "@vercel/node" }
   ],
   "routes": [
     { "src": "/", "dest": "/api/M.js" },
     { "src": "/route2/(.*)", "dest": "/api/A.js" },
     { "src": "/route3/(.*)", "dest": "/api/B.js" },
     { "src": "/route4(/.*)?", "dest": "/api/Ab.js" },
-    { "src": "/8/(.*)", "dest": "/api/Kdkdjdk.js" }
+    { "src": "/8/(.*)", "dest": "/api/Kdkdjdk.cjs" }
   ]
 }
