@@ -6,7 +6,7 @@
     { "src": "api/B.js", "use": "@vercel/node" },
     { "src": "api/Ab.js", "use": "@vercel/node" },
     { "src": "api/Kdkdjdk.js", "use": "@vercel/node" },
-    { "src": "api/New.js", "use": "@vercel/python" }  // New build entry
+    { "src": "api/New.js", "use": "@vercel/python" }  
   ],
   "routes": [
     { "src": "/", "dest": "/api/M.js" },
@@ -14,6 +14,6 @@
     { "src": "/route3/(.*)", "dest": "/api/B.js" },
     { "src": "/route4(/.*)?", "dest": "/api/Ab.js" },
     { "src": "/8/(.*)", "dest": "/api/Kdkdjdk.js" },
-    { "src": "/m/(.*)", "dest": "/api/Kdkd.py" }  // New route added
+    { "src": "/m/(.*)", "dest": "/api/Kdkd.py" }  
   ]
 }
