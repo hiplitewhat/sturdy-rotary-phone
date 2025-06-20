@@ -1,10 +1,9 @@
-
 from flask import Flask, render_template_string, request, Response
 import requests
 
 app = Flask(__name__)
 
-@app.route('/template/<int:template_id>')
+@app.route('/m/template/<int:template_id>')
 def show_template(template_id):
     image_url = f'/api/image/{template_id}'
     html = f'''
@@ -15,7 +14,7 @@ def show_template(template_id):
     '''
     return render_template_string(html)
 
-@app.route('/image/<int:template_id>')
+@app.route('/m/image/<int:template_id>')
 def proxy_image(template_id):
     robloxdex_url = f'https://robloxdex.com/template/{template_id}.png'
     try:
@@ -30,7 +29,7 @@ def proxy_image(template_id):
     except requests.exceptions.RequestException as e:
         return f"Error retrieving image: {str(e)}", 502
 
-@app.route('/')
+@app.route('/m/')
 def home():
     return '''
     <h1>Roblox Template Viewer</h1>
@@ -41,18 +40,9 @@ def home():
     </form>
     '''
 
-@app.route('/template/')
+@app.route('/m/template/')
 def redirect_to_template():
     template_id = request.args.get('id')
     if template_id and template_id.isdigit():
         return f'<script>window.location.href = "/api/template/{template_id}";</script>'
     return "Invalid template ID", 400
-
-# Required by Vercel
-def handler(event, context):
-    from werkzeug.middleware.dispatcher import DispatcherMiddleware
-    from werkzeug.wrappers import Response as WSGIResponse
-
-    return DispatcherMiddleware(WSGIResponse('Not Found', status=404), {
-        '/api': app
-    })
