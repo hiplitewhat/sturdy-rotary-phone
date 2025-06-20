@@ -6,7 +6,7 @@
     { "src": "api/B.js", "use": "@vercel/node" },
     { "src": "api/Ab.js", "use": "@vercel/node" },
     { "src": "api/Kdkdjdk.js", "use": "@vercel/node" },
-    { "src": "api/New.js", "use": "@vercel/python" }  
+    { "src": "api/Kdkd.py", "use": "@vercel/python" }  
   ],
   "routes": [
     { "src": "/", "dest": "/api/M.js" },
