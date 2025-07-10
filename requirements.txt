@@ -1,3 +1,4 @@
+mangum
 fastapi
 aiohttp
 python-dotenv
