@@ -1,6 +1,6 @@
 
 # api/index.py
-
+from mangum import Mangum
 from fastapi import FastAPI
 from pydantic import BaseModel
 from typing import Optional
@@ -80,6 +80,5 @@ async def whitelist_user(req: WhitelistRequest):
 
 
 # Export ASGI handler
-from mangum import Mangum
 
 handler = Mangum(app)
