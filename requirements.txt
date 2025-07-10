@@ -1,3 +1,6 @@
+fastapi
+aiohttp
+python-dotenv
 flask
 requests
 bs4
