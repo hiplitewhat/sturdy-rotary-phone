@@ -80,4 +80,6 @@ async def whitelist_user(req: WhitelistRequest):
 
 
 # Export ASGI handler
-handler = app
+from mangum import Mangum
+
+handler = Mangum(app)
