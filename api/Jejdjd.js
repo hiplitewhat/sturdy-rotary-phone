@@ -1,5 +1,4 @@
-
-const axios = require("axios");
+import axios from "axios";
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const REPO = process.env.GITHUB_REPO;
