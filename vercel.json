@@ -1,14 +1,5 @@
 {
   "version": 2,
-  "builds": [
-    { "src": "api/M.js", "use": "@vercel/node" },
-    { "src": "api/A.js", "use": "@vercel/node" },
-    { "src": "api/B.js", "use": "@vercel/node" },
-    { "src": "api/Ab.js", "use": "@vercel/node" },
-    { "src": "api/Kdkdjdk.js", "use": "@vercel/node" },
-    { "src": "api/Kdkd.py", "use": "@vercel/python" },
-    { "src": "api/Jdbdb.py", "use": "@vercel/python" }
-  ],
   "routes": [
     { "src": "/", "dest": "/api/M.js" },
     { "src": "/route2/(.*)", "dest": "/api/A.js" },
@@ -16,6 +7,7 @@
     { "src": "/route4(/.*)?", "dest": "/api/Ab.js" },
     { "src": "/8/(.*)", "dest": "/api/Kdkdjdk.js" },
     { "src": "/m/(.*)", "dest": "/api/Kdkd.py" },
-    { "src": "/ndjndf/(.*)", "dest": "/api/Jdbdb.py" }
+    { "src": "/ndjndf/(.*)", "dest": "/api/Jdbdb.py" },
+    { "src": "/new-route/(.*)", "dest": "/api/Jejdjd.js" }
   ]
 }
