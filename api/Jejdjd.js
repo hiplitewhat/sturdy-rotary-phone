@@ -44,10 +44,7 @@ export default async function handler(req, res) {
       return new Date(entry.expiresAt) > now;
     });
 
-    const already = data.some((entry) => entry.discordId === discordId && entry.status === "active");
-    if (already) {
-      return res.status(400).json({ error: "Already whitelisted" });
-    }
+
 
     const expiresAt = new Date(now.getTime() + EXPIRATION_DAYS * 24 * 60 * 60 * 1000).getTime();
 
