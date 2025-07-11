@@ -48,13 +48,19 @@ export default async function handler(req, res) {
 
     const expiresAt = new Date(now.getTime() + EXPIRATION_DAYS * 24 * 60 * 60 * 1000).getTime();
 
-    data.push({
-      discordId,
-      discordTag,
-      name,
-      status: "active",
-      expiresAt,
-    });
+    const alreadyExists = data.some(entry => entry.name.toLowerCase() === name.toLowerCase());
+
+if (alreadyExists) {
+  return res.status(409).json({ error: `Roblox user "${name}" is already whitelisted.` });
+}
+
+data.push({
+  discordId,
+  discordTag,
+  name,
+  status: "active",
+  expiresAt,
+});
 
     await updateList(data, sha, `✅ Whitelist added for ${name}`);
     return res.status(200).json({ message: `Whitelisted ${name}`, expiresAt });
