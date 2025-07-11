@@ -1,22 +1,26 @@
 import axios from "axios";
 
+// Environment Variables
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const REPO = process.env.GITHUB_REPO;
 const FILE_PATH = process.env.GITHUB_FILE_PATH;
 const EXPIRATION_DAYS = 7;
 
+// GitHub API Config
 const GITHUB_API = `https://api.github.com/repos/${REPO}/contents/${FILE_PATH}`;
 const HEADERS = {
   Authorization: `token ${GITHUB_TOKEN}`,
   Accept: "application/vnd.github.v3+json",
 };
 
+// Fetch whitelist data
 async function fetchList() {
   const res = await axios.get(GITHUB_API, { headers: HEADERS });
   const content = Buffer.from(res.data.content, "base64").toString("utf-8");
   return [JSON.parse(content), res.data.sha];
 }
 
+// Update whitelist on GitHub
 async function updateList(listData, sha, message) {
   const contentB64 = Buffer.from(JSON.stringify(listData, null, 2)).toString("base64");
   const payload = {
@@ -28,6 +32,7 @@ async function updateList(listData, sha, message) {
   return res.data;
 }
 
+// API Route Handler
 export default async function handler(req, res) {
   const now = new Date();
 
@@ -38,22 +43,42 @@ export default async function handler(req, res) {
 
     try {
       const [data] = await fetchList();
+      const lowerName = name.toLowerCase();
 
-      const match = data.find(entry =>
-        entry.name.toLowerCase() === name.toLowerCase() &&
-        entry.status !== "left" &&
-        new Date(entry.expiresAt) > now
-      );
+      const entry = data.find(e => e.name.toLowerCase() === lowerName);
 
-      if (match) {
-        return res.status(200).json({
-          whitelisted: true,
-          name: match.name,
-          expiresAt: match.expiresAt,
+      if (!entry) {
+        return res.status(404).json({
+          whitelisted: false,
+          reason: "Not found",
         });
-      } else {
-        return res.status(404).json({ whitelisted: false });
       }
+
+      const isExpired = new Date(entry.expiresAt) <= now;
+
+      if (entry.status === "left") {
+        return res.status(200).json({
+          whitelisted: false,
+          reason: "User has left",
+          name: entry.name,
+          expired: isExpired,
+        });
+      }
+
+      if (isExpired) {
+        return res.status(200).json({
+          whitelisted: false,
+          reason: "Whitelist expired",
+          name: entry.name,
+        });
+      }
+
+      return res.status(200).json({
+        whitelisted: true,
+        name: entry.name,
+        expiresAt: entry.expiresAt,
+      });
+
     } catch (err) {
       console.error(err.response?.data || err.message);
       return res.status(500).json({ error: "Internal Server Error" });
@@ -71,7 +96,7 @@ export default async function handler(req, res) {
     try {
       let [data, sha] = await fetchList();
 
-      // Remove expired "left" users
+      // Clean up: remove expired "left" users
       data = data.filter(entry => {
         if (entry.status !== "left") return true;
         return new Date(entry.expiresAt) > now;
@@ -85,7 +110,7 @@ export default async function handler(req, res) {
         return res.status(409).json({ error: `Roblox user "${name}" is already whitelisted.` });
       }
 
-      const expiresAt = new Date(now.getTime() + EXPIRATION_DAYS * 24 * 60 * 60 * 1000).getTime();
+      const expiresAt = new Date(now.getTime() + EXPIRATION_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
       data.push({
         discordId,
