@@ -29,44 +29,80 @@ async function updateList(listData, sha, message) {
 }
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method Not Allowed" });
-  }
-
-  const { discordId, discordTag, name } = req.body;
   const now = new Date();
 
-  try {
-    let [data, sha] = await fetchList();
+  // GET: Check if a user is whitelisted
+  if (req.method === "GET") {
+    const { name } = req.query;
+    if (!name) return res.status(400).json({ error: "Missing 'name' query parameter" });
 
-    data = data.filter((entry) => {
-      if (entry.status !== "left") return true;
-      return new Date(entry.expiresAt) > now;
-    });
+    try {
+      const [data] = await fetchList();
 
+      const match = data.find(entry =>
+        entry.name.toLowerCase() === name.toLowerCase() &&
+        entry.status !== "left" &&
+        new Date(entry.expiresAt) > now
+      );
 
-
-    const expiresAt = new Date(now.getTime() + EXPIRATION_DAYS * 24 * 60 * 60 * 1000).getTime();
-
-    const alreadyExists = data.some(entry => entry.name.toLowerCase() === name.toLowerCase());
-
-if (alreadyExists) {
-  return res.status(409).json({ error: `Roblox user "${name}" is already whitelisted.` });
-}
-
-data.push({
-  discordId,
-  discordTag,
-  name,
-  status: "active",
-  expiresAt,
-});
-
-    await updateList(data, sha, `✅ Whitelist added for ${name}`);
-    return res.status(200).json({ message: `Whitelisted ${name}`, expiresAt });
-
-  } catch (err) {
-    console.error(err.response?.data || err.message);
-    return res.status(500).json({ error: "Internal Server Error" });
+      if (match) {
+        return res.status(200).json({
+          whitelisted: true,
+          name: match.name,
+          expiresAt: match.expiresAt,
+        });
+      } else {
+        return res.status(404).json({ whitelisted: false });
+      }
+    } catch (err) {
+      console.error(err.response?.data || err.message);
+      return res.status(500).json({ error: "Internal Server Error" });
+    }
   }
+
+  // POST: Add a new user to the whitelist
+  if (req.method === "POST") {
+    const { discordId, discordTag, name } = req.body;
+
+    if (!discordId || !discordTag || !name) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    try {
+      let [data, sha] = await fetchList();
+
+      // Remove expired "left" users
+      data = data.filter(entry => {
+        if (entry.status !== "left") return true;
+        return new Date(entry.expiresAt) > now;
+      });
+
+      const alreadyExists = data.some(
+        entry => entry.name.toLowerCase() === name.toLowerCase()
+      );
+
+      if (alreadyExists) {
+        return res.status(409).json({ error: `Roblox user "${name}" is already whitelisted.` });
+      }
+
+      const expiresAt = new Date(now.getTime() + EXPIRATION_DAYS * 24 * 60 * 60 * 1000).getTime();
+
+      data.push({
+        discordId,
+        discordTag,
+        name,
+        status: "active",
+        expiresAt,
+      });
+
+      await updateList(data, sha, `✅ Whitelist added for ${name}`);
+      return res.status(200).json({ message: `Whitelisted ${name}`, expiresAt });
+    } catch (err) {
+      console.error(err.response?.data || err.message);
+      return res.status(500).json({ error: "Internal Server Error" });
+    }
+  }
+
+  // Method not allowed
+  return res.status(405).json({ error: "Method Not Allowed" });
 }
