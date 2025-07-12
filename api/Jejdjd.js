@@ -34,7 +34,7 @@ async function updateList(listData, sha, message) {
 
 // API Route Handler
 export default async function handler(req, res) {
-  const now = new Date();
+  const now = Date.now(); // current timestamp in ms
 
   // GET: Check if a user is whitelisted
   if (req.method === "GET") {
@@ -54,7 +54,7 @@ export default async function handler(req, res) {
         });
       }
 
-      const isExpired = new Date(entry.expiresAt) <= now;
+      const isExpired = entry.expiresAt <= now;
 
       if (entry.status === "left") {
         return res.status(200).json({
@@ -72,7 +72,7 @@ export default async function handler(req, res) {
           name: entry.name,
         });
       }
-      
+
       return res.status(200).json({
         whitelisted: true,
         name: entry.name,
@@ -99,7 +99,7 @@ export default async function handler(req, res) {
       // Clean up: remove expired "left" users
       data = data.filter(entry => {
         if (entry.status !== "left") return true;
-        return new Date(entry.expiresAt) > now;
+        return entry.expiresAt > now;
       });
 
       const alreadyExists = data.some(
@@ -110,7 +110,7 @@ export default async function handler(req, res) {
         return res.status(409).json({ error: `Roblox user "${name}" is already whitelisted.` });
       }
 
-      const expiresAt = new Date(now.getTime() + EXPIRATION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+      const expiresAt = now + EXPIRATION_DAYS * 24 * 60 * 60 * 1000;
 
       data.push({
         discordId,
