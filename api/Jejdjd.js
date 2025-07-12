@@ -74,7 +74,7 @@ export default async function handler(req, res) {
       }
 
       return res.status(200).json({
-        whitelisted: true,
+        whitelisted: false,
         name: entry.name,
         expiresAt: entry.expiresAt,
       });
