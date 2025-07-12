@@ -72,14 +72,6 @@ export default async function handler(req, res) {
           name: entry.name,
         });
       }
-
-      if (!entry.expiresAt || !entry.status) {
-  return res.status(400).json({
-    whitelisted: false,
-    reason: "Incomplete user data (missing 'status' or 'expiresAt')",
-    name: entry.name,
-  });
-      }
       
       return res.status(200).json({
         whitelisted: true,
