@@ -1,36 +1,46 @@
+const express = require('express');
+const axios = require('axios');
 
-from flask import Flask, request, jsonify
-import requests
+const app = express();
+app.use(express.json());
 
-app = Flask(__name__)
+app.post('/', async (req, res) => {
+  if (req.headers['user-agent'] !== 'Roblox') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
 
-@app.route('/m', methods=['POST'])
-def proxy_request():
-    if request.headers.get('User-Agent') != 'Roblox':
-        return jsonify({'error': 'Forbidden'}), 403
+  const { Url: url, Method = 'GET', Headers = {} } = req.body;
 
-    data = request.get_json()
+  // Handle case if Headers is an array of objects
+  let headers = {};
+  if (Array.isArray(Headers)) {
+    Headers.forEach(h => {
+      if (typeof h === 'object') {
+        headers = { ...headers, ...h };
+      }
+    });
+  } else if (typeof Headers === 'object') {
+    headers = Headers;
+  }
 
-    url = data.get('Url')
-    method = data.get('Method', 'GET').upper()
-    headers = data.get('Headers', {})
+  try {
+    const response = await axios({
+      method: Method.toLowerCase(),
+      url,
+      headers,
+    });
 
-    if isinstance(headers, list):
-        headers_dict = {}
-        for header in headers:
-            if isinstance(header, dict):
-                headers_dict.update(header)
-        headers = headers_dict
+    res.json({
+      status_code: response.status,
+      headers: response.headers,
+      content: response.data,
+    });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
 
-    try:
-        resp = requests.request(method, url, headers=headers)
-        return jsonify({
-            'status_code': resp.status_code,
-            'headers': dict(resp.headers),
-            'content': resp.text
-        }), 200
-    except requests.exceptions.RequestException as e:
-        return jsonify({'error': str(e)}), 400
-
-if __name__ == '__main__':
-    app.run(debug=True)
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server listening on port ${PORT}`);
+});
