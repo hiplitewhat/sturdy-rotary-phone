@@ -4,7 +4,7 @@ import requests
 
 app = Flask(__name__)
 
-@app.route('/', methods=['POST'])
+@app.route('/m', methods=['POST'])
 def proxy_request():
     if request.headers.get('User-Agent') != 'Roblox':
         return jsonify({'error': 'Forbidden'}), 403
