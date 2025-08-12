@@ -10,6 +10,6 @@
     { "src": "/ndjndf/(.*)", "dest": "/api/Jdbdb.py" },
     { "src": "/new-route/(.*)", "dest": "/api/Jejdjd.js" },
     { "src": "/extra/(.*)", "dest": "/api/Sec.js" },
-    { "src": "/newpath/(.*)", "dest": "/api/Aggvhvhgf.py" }
+    { "src": "/newpath/(.*)", "dest": "/api/Aggvhvhgf.js" }
   ]
 }
