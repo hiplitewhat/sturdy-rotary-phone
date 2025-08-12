@@ -7,7 +7,7 @@ export default async function handler(req, res) {
   }
 
   const userAgent = req.headers['user-agent'] || '';
-  if (!userAgent.includes('Roblox')) {
+  if (!userAgent.toLowerCase().includes('roblox')) {
     res.status(403).json({ error: 'Forbidden' });
     return;
   }
@@ -31,12 +31,6 @@ export default async function handler(req, res) {
     headers = Headers;
   }
 
-  // Optional: URL whitelist check
-  // if (!url.startsWith('https://allowed-domain.com')) {
-  //   res.status(403).json({ error: 'URL not allowed' });
-  //   return;
-  // }
-
   const axiosConfig = {
     method: Method.toLowerCase(),
     url,
@@ -49,18 +43,20 @@ export default async function handler(req, res) {
 
   try {
     const response = await axios(axiosConfig);
-    res.status(response.status).json({
-      status_code: response.status,
-      headers: response.headers,
-      content: response.data,
-    });
+
+    // Forward Content-Type header if exists
+    if (response.headers['content-type']) {
+      res.setHeader('Content-Type', response.headers['content-type']);
+    }
+
+    res.status(response.status).send(response.data);
+
   } catch (error) {
     if (error.response) {
-      res.status(error.response.status).json({
-        status_code: error.response.status,
-        headers: error.response.headers,
-        content: error.response.data,
-      });
+      if (error.response.headers['content-type']) {
+        res.setHeader('Content-Type', error.response.headers['content-type']);
+      }
+      res.status(error.response.status).send(error.response.data);
     } else {
       res.status(500).json({ error: error.message });
     }
