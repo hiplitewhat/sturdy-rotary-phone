@@ -1,25 +1,33 @@
-const express = require('express');
-const axios = require('axios');
+import axios from 'axios';
 
-const app = express();
-app.use(express.json());
-
-app.post('/', async (req, res) => {
-  if (req.headers['user-agent'] !== 'Roblox') {
-    return res.status(403).json({ error: 'Forbidden' });
+export default async function handler(req, res) {
+  if (req.method !== 'POST') {
+    res.status(405).json({ error: 'Method Not Allowed' });
+    return;
   }
 
-  const { Url: url, Method = 'GET', Headers = {} } = req.body;
+  // Check User-Agent header
+  if (req.headers['user-agent'] !== 'Roblox') {
+    res.status(403).json({ error: 'Forbidden' });
+    return;
+  }
 
-  // Handle case if Headers is an array of objects
+  const { Url: url, Method = 'GET', Headers = {} } = req.body || {};
+
+  if (!url || typeof url !== 'string') {
+    res.status(400).json({ error: 'Invalid or missing Url' });
+    return;
+  }
+
+  // Normalize headers if array
   let headers = {};
   if (Array.isArray(Headers)) {
     Headers.forEach(h => {
-      if (typeof h === 'object') {
+      if (typeof h === 'object' && h !== null) {
         headers = { ...headers, ...h };
       }
     });
-  } else if (typeof Headers === 'object') {
+  } else if (typeof Headers === 'object' && Headers !== null) {
     headers = Headers;
   }
 
@@ -30,11 +38,15 @@ app.post('/', async (req, res) => {
       headers,
     });
 
-    res.json({
+    res.status(200).json({
       status_code: response.status,
       headers: response.headers,
       content: response.data,
     });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+}    });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
