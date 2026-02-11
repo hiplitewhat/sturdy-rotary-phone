@@ -4,7 +4,7 @@ import axios from "axios";
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const REPO = process.env.GITHUB_REPO;
 const FILE_PATH = process.env.GITHUB_FILE_PATH || "data/whitelist.json";
-const EXPIRATION_DAYS = 7; // Default if expiration is enabled
+const EXPIRATION_DAYS = 7;
 
 // GitHub API Config
 const GITHUB_API = `https://api.github.com/repos/${REPO}/contents/${FILE_PATH}`;
@@ -40,18 +40,15 @@ async function updateList(listData, sha, message) {
 }
 
 // ========================
-// SERVER-SPECIFIC WHITELIST FUNCTIONS
+// FIXED: SERVER-SPECIFIC WHITELIST FUNCTIONS
 // ========================
 
 /**
  * Get whitelist for a specific server
- * Each server has its OWN separate whitelist!
  */
 function getServerWhitelist(data, guildId) {
   if (!guildId) return [];
-  
-  // Filter entries for this specific server
-  return data.filter(entry => entry.guild_id === guildId);
+  return data.filter(entry => entry.guild_id == guildId); // Use == for string/number comparison
 }
 
 /**
@@ -62,34 +59,41 @@ function findUserInServer(data, guildId, username) {
   
   const lowerName = username.toLowerCase();
   return data.find(e => 
-    e.guild_id === guildId && 
-    e.name.toLowerCase() === lowerName
+    e.guild_id == guildId && // Use == for string/number comparison
+    e.name?.toLowerCase() === lowerName
   );
 }
 
-// API Route Handler
+// ========================
+// API ROUTE HANDLER - FIXED VERSION
+// ========================
+
 export default async function handler(req, res) {
   const now = Date.now();
 
   // ========================
-  // GET: Check user or get all data for a server
+  // GET REQUEST - FIXED
   // ========================
   if (req.method === "GET") {
     const { name, type, guild_id } = req.query;
     
-    // CRITICAL: Must have guild_id for server isolation!
-    if (!guild_id) {
-      return res.status(400).json({ 
-        error: "Missing 'guild_id' query parameter - required for server isolation" 
-      });
-    }
+    console.log(`[API] GET Request - type: ${type}, name: ${name}, guild_id: ${guild_id}`);
     
-    // Get all data for a SPECIFIC SERVER
+    // ----- GET ALL DATA FOR A SPECIFIC SERVER -----
     if (type === "all") {
+      // Check if guild_id is provided
+      if (!guild_id) {
+        return res.status(400).json({ 
+          error: "Missing 'guild_id' query parameter",
+          message: "guild_id is required to fetch server whitelist"
+        });
+      }
+      
       try {
         const [data] = await fetchList();
-        // Filter data for this server only!
+        // Filter data for this server only
         const serverData = getServerWhitelist(data, guild_id);
+        console.log(`[API] Returning ${serverData.length} entries for guild ${guild_id}`);
         return res.status(200).json(serverData);
       } catch (err) {
         console.error(err);
@@ -97,74 +101,83 @@ export default async function handler(req, res) {
       }
     }
     
-    // Check specific user in a SPECIFIC SERVER
-    if (!name) {
-      return res.status(400).json({ error: "Missing 'name' query parameter" });
-    }
-
-    try {
-      const [data] = await fetchList();
-      
-      // Find user in THIS SPECIFIC SERVER only!
-      const entry = findUserInServer(data, guild_id, name);
-
-      if (!entry) {
-        return res.status(404).json({
-          whitelisted: false,
-          reason: "Not found in this server",
-          guild_id: guild_id
+    // ----- CHECK SPECIFIC USER IN A SERVER -----
+    if (name) {
+      // Check if guild_id is provided
+      if (!guild_id) {
+        return res.status(400).json({ 
+          error: "Missing 'guild_id' query parameter",
+          message: "guild_id is required to check user status"
         });
       }
+      
+      try {
+        const [data] = await fetchList();
+        
+        // Find user in THIS SPECIFIC SERVER only
+        const entry = findUserInServer(data, guild_id, name);
 
-      if (entry.status === "blacklisted") {
+        if (!entry) {
+          return res.status(404).json({
+            whitelisted: false,
+            reason: "Not found in this server",
+            guild_id: guild_id
+          });
+        }
+
+        if (entry.status === "blacklisted") {
+          return res.status(200).json({
+            whitelisted: false,
+            reason: "User is blacklisted in this server",
+            name: entry.name,
+            status: "blacklisted",
+            guild_id: entry.guild_id,
+            guild_name: entry.guild_name
+          });
+        }
+
+        if (entry.status === "left") {
+          return res.status(200).json({
+            whitelisted: false,
+            reason: "User has left this server",
+            name: entry.name,
+            guild_id: entry.guild_id
+          });
+        }
+
+        // Check expiration
+        if (entry.expiresAt && entry.expiresAt <= now) {
+          return res.status(200).json({
+            whitelisted: false,
+            reason: "Whitelist expired in this server",
+            name: entry.name,
+            guild_id: entry.guild_id
+          });
+        }
+
         return res.status(200).json({
-          whitelisted: false,
-          reason: "User is blacklisted in this server",
+          whitelisted: true,
           name: entry.name,
-          status: "blacklisted",
+          discordId: entry.discordId,
+          discordTag: entry.discordTag,
+          status: entry.status,
+          expiresAt: entry.expiresAt || null,
           guild_id: entry.guild_id,
           guild_name: entry.guild_name
         });
+
+      } catch (err) {
+        console.error(err);
+        return res.status(500).json({ error: "Internal Server Error" });
       }
-
-      if (entry.status === "left") {
-        return res.status(200).json({
-          whitelisted: false,
-          reason: "User has left this server",
-          name: entry.name,
-          guild_id: entry.guild_id
-        });
-      }
-
-      // Check expiration
-      if (entry.expiresAt && entry.expiresAt <= now) {
-        return res.status(200).json({
-          whitelisted: false,
-          reason: "Whitelist expired in this server",
-          name: entry.name,
-          guild_id: entry.guild_id
-        });
-      }
-
-      return res.status(200).json({
-        whitelisted: true,
-        name: entry.name,
-        discordId: entry.discordId,
-        discordTag: entry.discordTag,
-        status: entry.status,
-        expiresAt: entry.expiresAt || null,
-        guild_id: entry.guild_id,
-        guild_name: entry.guild_name
-      });
-
-    } catch (err) {
-      console.error(err);
-      return res.status(500).json({ error: "Internal Server Error" });
     }
+    
+    // Missing name parameter
+    return res.status(400).json({ error: "Missing 'name' query parameter" });
   }
 
   // ========================
-  // POST: Add user to SPECIFIC SERVER'S whitelist
+  // POST REQUEST - FIXED
   // ========================
   if (req.method === "POST") {
     const { 
@@ -174,9 +187,11 @@ export default async function handler(req, res) {
       status = "active", 
       expiresAt, 
       noExpiration = false,
-      guild_id,        // ← CRITICAL: Must have guild_id!
-      guild_name       // ← Store server name for display
+      guild_id,
+      guild_name 
     } = req.body;
+
+    console.log(`[API] POST Request - name: ${name}, guild_id: ${guild_id}`);
 
     if (!name) {
       return res.status(400).json({ error: "Missing required field: name" });
@@ -184,7 +199,8 @@ export default async function handler(req, res) {
 
     if (!guild_id) {
       return res.status(400).json({ 
-        error: "Missing required field: guild_id - each server needs its own whitelist!" 
+        error: "Missing required field: guild_id",
+        message: "guild_id is required - each server needs its own whitelist!"
       });
     }
 
@@ -206,10 +222,10 @@ export default async function handler(req, res) {
 
       const lowerName = name.toLowerCase();
       
-      // Find user in THIS SPECIFIC SERVER only!
+      // Find user in THIS SPECIFIC SERVER only
       const existingIndex = data.findIndex(e => 
-        e.guild_id === guild_id && 
-        e.name.toLowerCase() === lowerName
+        e.guild_id == guild_id && 
+        e.name?.toLowerCase() === lowerName
       );
       
       let expirationTime;
@@ -240,14 +256,14 @@ export default async function handler(req, res) {
           name,
           status,
           expiresAt: expirationTime,
-          guild_id,        // ← CRITICAL: Store which server this belongs to!
-          guild_name,      // ← Store server name for display
+          guild_id: guild_id,
+          guild_name: guild_name || "Unknown Server",
           createdAt: now,
           updatedAt: now
         });
       }
 
-      await updateList(data, sha, `✅ [Server ${guild_id}] ${name} ${existingIndex >= 0 ? 'updated' : 'added'} (${status})`);
+      await updateList(data, sha, `✅ [Server ${guild_id}] ${name} ${existingIndex >= 0 ? 'updated' : 'added'}`);
       return res.status(200).json({ 
         success: true, 
         message: `User ${name} ${existingIndex >= 0 ? 'updated' : 'added'} in server ${guild_id}`,
@@ -263,10 +279,12 @@ export default async function handler(req, res) {
   }
 
   // ========================
-  // PATCH: Update user status in SPECIFIC SERVER
+  // PATCH REQUEST - FIXED
   // ========================
   if (req.method === "PATCH") {
     const { name, status, noExpiration = false, guild_id } = req.body;
+
+    console.log(`[API] PATCH Request - name: ${name}, status: ${status}, guild_id: ${guild_id}`);
 
     if (!name || !status) {
       return res.status(400).json({ error: "Missing required fields: name, status" });
@@ -274,7 +292,8 @@ export default async function handler(req, res) {
 
     if (!guild_id) {
       return res.status(400).json({ 
-        error: "Missing required field: guild_id - each server has its own whitelist!" 
+        error: "Missing required field: guild_id",
+        message: "guild_id is required - each server has its own whitelist!"
       });
     }
 
@@ -286,10 +305,10 @@ export default async function handler(req, res) {
       let [data, sha] = await fetchList();
       const lowerName = name.toLowerCase();
       
-      // Find user in THIS SPECIFIC SERVER only!
+      // Find user in THIS SPECIFIC SERVER only
       const existingIndex = data.findIndex(e => 
-        e.guild_id === guild_id && 
-        e.name.toLowerCase() === lowerName
+        e.guild_id == guild_id && 
+        e.name?.toLowerCase() === lowerName
       );
 
       if (existingIndex < 0) {
@@ -316,7 +335,8 @@ export default async function handler(req, res) {
       return res.status(200).json({ 
         success: true, 
         message: `User ${name} status updated to ${status} in server ${guild_id}`,
-        noExpiration: noExpiration,
+        expiresAt: data[existingIndex].expiresAt,
+        noExpiration: data[existingIndex].expiresAt === null,
         guild_id: guild_id
       });
     } catch (err) {
@@ -326,10 +346,12 @@ export default async function handler(req, res) {
   }
 
   // ========================
-  // DELETE: Remove user from SPECIFIC SERVER
+  // DELETE REQUEST - FIXED
   // ========================
   if (req.method === "DELETE") {
     const { name, guild_id } = req.body;
+
+    console.log(`[API] DELETE Request - name: ${name}, guild_id: ${guild_id}`);
 
     if (!name) {
       return res.status(400).json({ error: "Missing required field: name" });
@@ -337,7 +359,8 @@ export default async function handler(req, res) {
 
     if (!guild_id) {
       return res.status(400).json({ 
-        error: "Missing required field: guild_id - each server has its own whitelist!" 
+        error: "Missing required field: guild_id",
+        message: "guild_id is required - each server has its own whitelist!"
       });
     }
 
@@ -346,9 +369,9 @@ export default async function handler(req, res) {
       const lowerName = name.toLowerCase();
       const initialLength = data.length;
       
-      // Remove user from THIS SPECIFIC SERVER only!
+      // Remove user from THIS SPECIFIC SERVER only
       data = data.filter(e => 
-        !(e.guild_id === guild_id && e.name.toLowerCase() === lowerName)
+        !(e.guild_id == guild_id && e.name?.toLowerCase() === lowerName)
       );
 
       if (data.length === initialLength) {
@@ -370,4 +393,4 @@ export default async function handler(req, res) {
 
   // Method not allowed
   return res.status(405).json({ error: "Method Not Allowed" });
-    }
+}
